@@ -4,6 +4,15 @@
   "private": true,
   "packageManager": "pnpm@11.5.2",
   "description": "Threadshift preserves working context and carries it into a fresh Pi session before the window becomes crowded.",
+  "author": "Rajyavardhan Singh",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imrajyavardhan12/pi-threadshift.git"
+  },
+  "bugs": {
+    "url": "https://github.com/imrajyavardhan12/pi-threadshift/issues"
+  },
+  "homepage": "https://github.com/imrajyavardhan12/pi-threadshift#readme",
   "type": "module",
   "keywords": [
     "pi-package",

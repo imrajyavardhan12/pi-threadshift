@@ -1,5 +1,7 @@
 # Threadshift for Pi
 
+[![CI](https://github.com/imrajyavardhan12/pi-threadshift/actions/workflows/ci.yml/badge.svg)](https://github.com/imrajyavardhan12/pi-threadshift/actions/workflows/ci.yml)
+
 **Threadshift** preserves the working context of a long Pi session and carries it into a fresh one before the context window becomes crowded.
 
 At 70% usage by default, Threadshift summarizes the active, compaction-aware conversation, captures the current Git working-tree summary, writes a private Markdown handoff, and prepares a replacement session.
