@@ -32,16 +32,16 @@ If Pi's proactive compaction would run before the configured percentage, Threads
 
 ## Install
 
-Until the first npm beta is published, install directly from GitHub:
-
-```bash
-pi install git:github.com/imrajyavardhan12/pi-threadshift
-```
-
-After `0.1.0-beta.1` is published:
+Install the beta from npm:
 
 ```bash
 pi install npm:pi-threadshift@beta
+```
+
+To test the development head directly from GitHub instead:
+
+```bash
+pi install git:github.com/imrajyavardhan12/pi-threadshift
 ```
 
 Restart Pi or run `/reload` after installation.
@@ -131,11 +131,9 @@ The continuation prompt tells the fresh agent to verify important claims against
 - Project-local configuration is read only when Pi reports the project as trusted.
 - Handoff documents are retained until you remove them.
 
-## Publishing status
+## Package discovery
 
-Threadshift is prepared for `0.1.0-beta.1` but has not yet been published to npm. The package name is currently unclaimed; availability is not a reservation.
-
-The [`pi-package`](package.json) keyword makes published npm versions discoverable by the [Pi package gallery](https://pi.dev/packages). There is no separate gallery upload. See [the release guide](docs/RELEASING.md) for npm authentication, beta dist-tag policy, verification, and gallery-indexing details.
+The [`pi-package`](package.json) keyword makes published npm versions discoverable by the [Pi package gallery](https://pi.dev/packages). There is no separate gallery upload. Beta releases remain opt-in under the `beta` dist-tag unless `latest` is deliberately assigned. See [the release guide](docs/RELEASING.md) for npm authentication, dist-tag policy, verification, and gallery-indexing details.
 
 ## Development
 
