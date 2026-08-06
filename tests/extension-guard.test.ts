@@ -43,6 +43,91 @@ function turnEvent(toolResults: unknown[] = [{ role: "toolResult" }]) {
 }
 
 describe("active-run context guard", () => {
+	it("re-enables protection when a consumed source session later continues", async () => {
+		const handlers = loadExtension();
+		const branch = [
+			{
+				type: "message",
+				id: "context-before-consumption",
+				message: { role: "user", content: [{ type: "text", text: "original work" }], timestamp: 1 },
+			},
+			{
+				type: "custom",
+				id: "consumed-state",
+				customType: "pi-threadshift",
+				data: {
+					version: 1,
+					status: "consumed",
+					path: "/tmp/handoff.md",
+					at: "2026-08-06T00:00:00.000Z",
+				},
+			},
+			{
+				type: "message",
+				id: "context-after-consumption",
+				message: { role: "user", content: [{ type: "text", text: "resumed work" }], timestamp: 2 },
+			},
+		];
+		const ctx = {
+			...turnContext(78.4),
+			cwd: "/project",
+			isProjectTrusted: () => false,
+			sessionManager: {
+				getBranch: () => branch,
+				buildContextEntries: () => branch,
+			},
+			ui: {
+				...turnContext(78.4).ui,
+				setWidget: vi.fn(),
+			},
+		};
+
+		await handlers.get("session_start")?.({ type: "session_start" }, ctx);
+		await handlers.get("turn_end")?.(turnEvent(), ctx);
+
+		expect(ctx.abort).toHaveBeenCalledOnce();
+	});
+
+	it("keeps a terminal lifecycle record suppressed until context advances", async () => {
+		const handlers = loadExtension();
+		const branch = [
+			{
+				type: "message",
+				id: "same-context",
+				message: { role: "user", content: [{ type: "text", text: "work" }], timestamp: 1 },
+			},
+			{
+				type: "custom",
+				id: "dismissed-state",
+				customType: "pi-threadshift",
+				data: {
+					version: 1,
+					status: "dismissed",
+					path: "/tmp/handoff.md",
+					at: "2026-08-06T00:00:00.000Z",
+				},
+			},
+		];
+		const ctx = {
+			...turnContext(78.4),
+			cwd: "/project",
+			isProjectTrusted: () => false,
+			sessionManager: {
+				getBranch: () => branch,
+				buildContextEntries: () => branch,
+			},
+			ui: {
+				...turnContext(78.4).ui,
+				setWidget: vi.fn(),
+			},
+		};
+
+		await handlers.get("session_start")?.({ type: "session_start" }, ctx);
+		await handlers.get("turn_end")?.(turnEvent(), ctx);
+
+		expect(ctx.abort).not.toHaveBeenCalled();
+	});
+
 	it("stops a continuing run at the first completed turn above the threshold", async () => {
 		const handlers = loadExtension();
 		const handler = handlers.get("turn_end");

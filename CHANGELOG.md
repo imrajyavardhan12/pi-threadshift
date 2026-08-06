@@ -17,6 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Persistent ready, consumed, dismissed, and failed lifecycle state.
 - Stale-handoff detection, parent-session tracking, and automatic continuation.
 - Manual generation, continuation, dismissal, and status commands.
+- Context-scoped suppression that prevents duplicate handoffs without permanently disabling resumed source sessions.
 - Type checking, unit and extension-event regression tests, package smoke tests, and multi-version CI.
 
 [Unreleased]: https://github.com/imrajyavardhan12/pi-threadshift/compare/v0.1.0-beta.1...HEAD

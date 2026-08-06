@@ -33,8 +33,8 @@ import {
 } from "../src/handoff-document.ts";
 import { shouldPauseActiveRun, shouldPrepareHandoff } from "../src/policy.ts";
 import {
-	findLatestHandoffState,
 	type HandoffState,
+	isHandoffState,
 	type ReadyHandoffState,
 	STATE_ENTRY_TYPE,
 	STATE_VERSION,
@@ -89,6 +89,22 @@ function isPendingHandoffStale(ctx: ExtensionContext, state: ReadyHandoffState):
 	return latestContextEntryId(ctx) !== state.sourceContextEntryId;
 }
 
+function findLatestHandoffCheckpoint(
+	ctx: ExtensionContext,
+): { state: HandoffState; contextEntryId: string | null } | undefined {
+	let contextEntryId: string | null = null;
+	let checkpoint: { state: HandoffState; contextEntryId: string | null } | undefined;
+
+	for (const entry of ctx.sessionManager.getBranch()) {
+		if (sessionEntryToContextMessages(entry).length > 0) contextEntryId = entry.id;
+		if (entry.type === "custom" && entry.customType === STATE_ENTRY_TYPE && isHandoffState(entry.data)) {
+			checkpoint = { state: entry.data, contextEntryId };
+		}
+	}
+
+	return checkpoint;
+}
+
 function displayReadyHandoff(ctx: ExtensionContext, state: ReadyHandoffState, stale = false): boolean {
 	const command = stale ? `/${PRIMARY_COMMAND}` : continuationCommand(state.path);
 	const canPrefill = ctx.mode === "tui" && ctx.ui.getEditorText().trim().length === 0;
@@ -126,8 +142,20 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 	let config = createDefaultConfig(getAgentDir());
 	let pending: ReadyHandoffState | undefined;
 	let inFlight = false;
-	let suppressed = false;
+	let suppressedAtContextEntryId: string | null | undefined;
 	let pauseRequested = false;
+
+	const isSuppressed = (): boolean => suppressedAtContextEntryId !== undefined;
+
+	const suppressAtCurrentContext = (ctx: ExtensionContext): void => {
+		suppressedAtContextEntryId = latestContextEntryId(ctx);
+	};
+
+	const refreshSuppression = (ctx: ExtensionContext): void => {
+		if (isSuppressed() && latestContextEntryId(ctx) !== suppressedAtContextEntryId) {
+			suppressedAtContextEntryId = undefined;
+		}
+	};
 
 	const appendState = (state: HandoffState): void => {
 		pi.appendEntry(STATE_ENTRY_TYPE, state);
@@ -295,7 +323,7 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		pending = undefined;
 		inFlight = false;
-		suppressed = false;
+		suppressedAtContextEntryId = undefined;
 		pauseRequested = false;
 		ctx.ui.setWidget(WIDGET_ID, undefined);
 		ctx.ui.setStatus(STATUS_ID, undefined);
@@ -311,27 +339,32 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 		config = loaded.config;
 		for (const warning of loaded.warnings) ctx.ui.notify(warning, "warning");
 
-		const latest = findLatestHandoffState(ctx.sessionManager.getBranch());
+		const checkpoint = findLatestHandoffCheckpoint(ctx);
+		const latest = checkpoint?.state;
 		if (latest?.status === "ready") {
 			if (existsSync(latest.path)) {
 				pending = latest;
 				if (ctx.mode === "tui") displayReadyHandoff(ctx, latest, isPendingHandoffStale(ctx, latest));
 			} else {
-				suppressed = true;
+				suppressedAtContextEntryId = latest.sourceContextEntryId;
+				refreshSuppression(ctx);
 				ctx.ui.notify(`Saved handoff no longer exists: ${latest.path}`, "warning");
 			}
-		} else if (latest) {
-			suppressed = true;
+		} else if (checkpoint) {
+			suppressedAtContextEntryId = checkpoint.contextEntryId;
+			refreshSuppression(ctx);
 		}
 	});
 
-	pi.on("agent_start", () => {
+	pi.on("agent_start", (_event, ctx) => {
 		pauseRequested = false;
+		refreshSuppression(ctx);
 	});
 
 	pi.on("turn_end", (event, ctx) => {
 		if (ctx.mode !== "tui") return;
 
+		refreshSuppression(ctx);
 		const usage = ctx.getContextUsage();
 		const willContinue = event.toolResults.length > 0 || ctx.hasPendingMessages();
 		if (
@@ -341,7 +374,7 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 				thresholdPercent: config.thresholdPercent,
 				inFlight,
 				hasPendingHandoff: pending !== undefined,
-				suppressed,
+				suppressed: isSuppressed(),
 				pauseRequested,
 				willContinue,
 			})
@@ -360,15 +393,9 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 	});
 
 	pi.on("session_before_compact", async (event, ctx) => {
-		if (
-			ctx.mode !== "tui" ||
-			event.reason !== "threshold" ||
-			!config.enabled ||
-			inFlight ||
-			pending !== undefined ||
-			suppressed ||
-			ctx.hasPendingMessages()
-		) {
+		if (ctx.mode !== "tui" || event.reason !== "threshold") return;
+		refreshSuppression(ctx);
+		if (!config.enabled || inFlight || pending !== undefined || isSuppressed() || ctx.hasPendingMessages()) {
 			return;
 		}
 
@@ -387,7 +414,7 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 			return { cancel: true };
 		} catch (error) {
 			const message = errorMessage(error);
-			suppressed = true;
+			suppressAtCurrentContext(ctx);
 			recordFailure(undefined, message);
 			ctx.ui.notify(`Early Threadshift handoff failed: ${message}. Pi will use normal compaction.`, "warning");
 			return;
@@ -398,9 +425,10 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 		if (ctx.mode !== "tui") return;
 		pauseRequested = false;
 		ctx.ui.setStatus(STATUS_ID, undefined);
+		refreshSuppression(ctx);
 		const usage = ctx.getContextUsage();
 		if (usage?.percent !== null && usage?.percent !== undefined && usage.percent < config.thresholdPercent) {
-			suppressed = false;
+			suppressedAtContextEntryId = undefined;
 		}
 		if (pending) {
 			displayReadyHandoff(ctx, pending, isPendingHandoffStale(ctx, pending));
@@ -413,7 +441,7 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 				thresholdPercent: config.thresholdPercent,
 				inFlight,
 				hasPendingHandoff: pending !== undefined,
-				suppressed,
+				suppressed: isSuppressed(),
 				hasPendingMessages: ctx.hasPendingMessages(),
 			})
 		) {
@@ -431,7 +459,7 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 			);
 		} catch (error) {
 			const message = errorMessage(error);
-			suppressed = true;
+			suppressAtCurrentContext(ctx);
 			recordFailure(undefined, message);
 			ctx.ui.notify(`Threadshift failed: ${message}. Use /${PRIMARY_COMMAND} to retry.`, "error");
 		}
@@ -454,7 +482,7 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 			} catch (error) {
 				const message = errorMessage(error);
 				if (!pending) {
-					suppressed = true;
+					suppressAtCurrentContext(ctx);
 					recordFailure(undefined, message);
 				}
 				ctx.ui.notify(`Threadshift failed: ${message}`, "error");
@@ -494,7 +522,7 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 				at: new Date().toISOString(),
 			});
 			pending = undefined;
-			suppressed = true;
+			suppressAtCurrentContext(ctx);
 			clearReadyHandoffUi(ctx, dismissed);
 			ctx.ui.notify("Threadshift handoff dismissed; the document was kept on disk", "info");
 		},
@@ -512,6 +540,7 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 					`Auto-continue: ${config.autoContinue ? "yes" : "no"}`,
 					`Directory: ${config.handoffDirectory}`,
 					`Pending: ${pending?.path ?? "none"}`,
+					`Suppressed for current context: ${isSuppressed() ? "yes" : "no"}`,
 				].join("\n"),
 				"info",
 			);
