@@ -1,0 +1,46 @@
+{
+  "name": "pi-threadshift",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.5.2",
+  "description": "Threadshift preserves working context and carries it into a fresh Pi session before the window becomes crowded.",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "handoff",
+    "context-window"
+  ],
+  "license": "MIT",
+  "files": [
+    "extensions",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "smoke": "pi --no-extensions -e . --list-models gpt-5.6-sol",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/threadshift.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "0.83.0",
+    "@earendil-works/pi-coding-agent": "0.83.0",
+    "@types/node": "24.12.4",
+    "typescript": "5.9.3",
+    "vitest": "4.1.9"
+  }
+}
