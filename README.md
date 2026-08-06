@@ -30,7 +30,23 @@ Pi exposes `ctx.newSession()` only to command contexts, not lifecycle events. Th
 
 If Pi's proactive compaction would run before the configured percentage, Threadshift prepares the handoff at that earlier safe boundary and cancels that one compaction. If generation fails, normal Pi compaction proceeds.
 
-## Install locally
+## Install
+
+Until the first npm beta is published, install directly from GitHub:
+
+```bash
+pi install git:github.com/imrajyavardhan12/pi-threadshift
+```
+
+After `0.1.0-beta.1` is published:
+
+```bash
+pi install npm:pi-threadshift@beta
+```
+
+Restart Pi or run `/reload` after installation.
+
+For local development:
 
 ```bash
 pnpm install
@@ -39,7 +55,7 @@ pnpm test
 pi install /Users/rvs/Developer/pi-threadshift
 ```
 
-Restart Pi after installation. To test without installing:
+To test without installing:
 
 ```bash
 pi -e /Users/rvs/Developer/pi-threadshift
@@ -117,24 +133,15 @@ The continuation prompt tells the fresh agent to verify important claims against
 
 ## Publishing status
 
-`pi-threadshift` was unclaimed on npm when this name was selected, but availability is not a reservation. The package remains `private: true` while it is dogfooded.
+Threadshift is prepared for `0.1.0-beta.1` but has not yet been published to npm. The package name is currently unclaimed; availability is not a reservation.
 
-Recommended release path:
-
-1. Use it across several real sessions and providers.
-2. Add CI and end-to-end coverage for Pi session replacement.
-3. Create a public GitHub repository with repository metadata, changelog, contribution guide, and security policy.
-4. Publish `0.1.0-beta.1` to npm and gather feedback.
-5. Remove the beta tag only after compatibility and failure recovery are proven.
+The [`pi-package`](package.json) keyword makes published npm versions discoverable by the [Pi package gallery](https://pi.dev/packages). There is no separate gallery upload. See [the release guide](docs/RELEASING.md) for npm authentication, beta dist-tag policy, verification, and gallery-indexing details.
 
 ## Development
 
 ```bash
-pnpm check
-pnpm test
-PI_OFFLINE=1 pnpm smoke
+pnpm release:check
 pnpm pack --dry-run
-pnpm audit --prod
 ```
 
 Development targets Pi `0.83.0`. Pi runtime libraries are peer dependencies, as recommended for distributed Pi packages.

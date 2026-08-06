@@ -1,0 +1,53 @@
+name: Bug report
+description: Report reproducible incorrect behavior in Threadshift
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include credentials, raw handoff documents, session JSONL files, or proprietary source code. Report vulnerabilities privately through the Security tab.
+  - type: input
+    id: pi-version
+    attributes:
+      label: Pi version
+      placeholder: "0.83.0"
+    validations:
+      required: true
+  - type: input
+    id: threadshift-version
+    attributes:
+      label: Threadshift version
+      placeholder: "0.1.0-beta.1"
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Provider and model
+      placeholder: "openai-codex/gpt-5.6-sol"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the observed and expected behavior with sensitive details removed.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Configure threshold...
+        2. Start a task...
+        3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Additional context
+      description: Include context percentage and relevant configuration, but no sensitive handoff/session content.
