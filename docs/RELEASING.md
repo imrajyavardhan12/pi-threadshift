@@ -68,18 +68,15 @@ The package already declares both requirements:
 
 After npm publishes and indexes the package, the gallery discovers it automatically. The gallery caches results in each browser for 15 minutes, so a newly indexed package may not appear immediately.
 
-The gallery currently builds an unversioned install command and fetches `/latest`. A beta-only publication uses the `beta` dist-tag, so choose one of these policies deliberately:
+The gallery currently builds an unversioned install command and fetches `/latest`. Inspect dist-tags after every publication:
 
-1. **Beta remains opt-in:** users install `npm:pi-threadshift@beta`; wait for the stable release before expecting the gallery's unversioned install button to work.
-2. **Beta is the public default:** after validation, point `latest` at the beta:
+```bash
+pnpm view pi-threadshift dist-tags
+```
 
-   ```bash
-   pnpm dist-tag add pi-threadshift@0.1.0-beta.1 latest
-   ```
+npmjs.org assigns `latest` on a package's first publication even when that version is published with another tag. The first `0.1.0-beta.1` publication therefore set both `beta` and `latest`, making this initial beta the public default and allowing the gallery's unversioned install command to work.
 
-   Replace `latest` with the stable version when it is released.
-
-Do not assign `latest` to a prerelease accidentally.
+Once a stable version owns `latest`, subsequent prereleases published with `--tag beta` leave `latest` on stable and remain opt-in through `npm:pi-threadshift@beta`. Do not move `latest` to a later prerelease accidentally; replace it with the stable version when stable is released.
 
 To inspect npm search indexing directly:
 
@@ -104,3 +101,5 @@ Verify installation with `pi install npm:pi-threadshift`, then check `https://pi
 - Pi package documentation: <https://pi.dev/docs/latest/packages>
 - Pi gallery: <https://pi.dev/packages>
 - Gallery implementation: <https://github.com/earendil-works/pi-website/blob/main/src/packages.html>
+- npm dist-tags: <https://docs.npmjs.com/cli/v11/commands/npm-dist-tag/>
+- npm first-publication dist-tag behavior: <https://github.com/npm/cli/issues/8490#issuecomment-3164821719>
