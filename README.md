@@ -20,9 +20,10 @@ In short: **the extension implements Threadshift; the package installs and distr
 1. Threadshift checks `ctx.getContextUsage().percent` after every completed agent turn and when the full run settles.
 2. If a continuing multi-turn run reaches the configured threshold, Threadshift pauses it after the current model response and tool batch have finished, before the next model request begins.
 3. Once the run settles, the active model generates a structured handoff.
-4. The document is written atomically with file mode `0600` under `~/.pi/agent/threadshift/handoffs/` by default.
+4. The document is written atomically as a private staging file with mode `0600` under `~/.pi/agent/threadshift/handoffs/` by default.
 5. Pi's editor is prefilled with `/threadshift-continue "<path>"`.
 6. Press **Enter once**. The command creates a new session with parent-session tracking and sends the handoff to the model automatically.
+7. After the tracked handoff is safely submitted in the replacement session, Threadshift deletes the staging file by default. Pending, cancelled, or failed continuations keep it for recovery.
 
 The threshold is a safe turn-boundary trigger, not a mid-operation kill switch. A single turn can carry usage beyond the configured percentage, but Threadshift does not interrupt an active model response or tool execution; it prevents the following turn instead. Completed responses and tool results remain in the handoff source context.
 
@@ -93,6 +94,7 @@ Project values override global values. Unknown or invalid settings cause that en
   "enabled": true,
   "thresholdPercent": 70,
   "autoContinue": true,
+  "retainHandoffFiles": false,
   "handoffDirectory": "~/.pi/agent/threadshift/handoffs",
   "maxOutputTokens": 8192,
   "generationTimeoutMs": 120000
@@ -101,6 +103,7 @@ Project values override global values. Unknown or invalid settings cause that en
 
 - `thresholdPercent`: `10`–`95`
 - `autoContinue`: when `false`, the replacement session opens with the continuation prompt in the editor instead of submitting it
+- `retainHandoffFiles`: when `false` (default), delete tracked staging files after successful automatic continuation, dismissal, or replacement by a newer handoff; set to `true` to keep an archive
 - `handoffDirectory`: absolute, `~/...`, or relative to the current project
 - `maxOutputTokens`: `1024`–`32768`
 - `generationTimeoutMs`: `10000`–`600000`
@@ -129,7 +132,8 @@ The continuation prompt tells the fresh agent to verify important claims against
 - The summarizer is instructed not to reproduce credentials or secret values.
 - Conversation and tool output are treated as untrusted source material to reduce prompt-injection risk.
 - Project-local configuration is read only when Pi reports the project as trusted.
-- Handoff documents are retained until you remove them.
+- Pending or failed handoffs remain available for recovery; successfully transferred staging files are deleted by default.
+- Automatic cleanup only removes recognized Threadshift filenames from the configured handoff directory and never removes manually supplied handoff paths.
 
 ## Package discovery
 

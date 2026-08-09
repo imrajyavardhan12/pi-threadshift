@@ -8,6 +8,7 @@ import {
 	buildHandoffPrompt,
 	extractResponseText,
 	readHandoffDocument,
+	removeOwnedHandoffDocument,
 	renderHandoffDocument,
 	writeHandoffDocument,
 } from "../src/handoff-document.ts";
@@ -80,6 +81,33 @@ describe("handoff document persistence", () => {
 		await writeFile(path, Buffer.alloc(1_048_577));
 
 		await expect(readHandoffDocument(path)).rejects.toThrow("exceeds");
+	});
+
+	it("removes only Threadshift-owned documents from the configured directory", async () => {
+		const root = await tempDirectory();
+		const directory = join(root, "handoffs");
+		const document = "# handoff";
+		const ownedPath = await writeHandoffDocument({
+			directory,
+			document,
+			generatedAt: "2026-08-06T01:02:03.456Z",
+			sessionId: "session-123456789",
+		});
+		const arbitraryPath = join(directory, "notes.md");
+		const outsidePath = await writeHandoffDocument({
+			directory: join(root, "elsewhere"),
+			document,
+			generatedAt: "2026-08-06T01:02:03.456Z",
+			sessionId: "session-123456789",
+		});
+		await writeFile(arbitraryPath, "keep me");
+
+		expect(await removeOwnedHandoffDocument(ownedPath, directory)).toBe("deleted");
+		expect(await removeOwnedHandoffDocument(ownedPath, directory)).toBe("missing");
+		expect(await removeOwnedHandoffDocument(arbitraryPath, directory)).toBe("refused");
+		expect(await removeOwnedHandoffDocument(outsidePath, directory)).toBe("refused");
+		await expect(access(arbitraryPath)).resolves.toBeUndefined();
+		await expect(access(outsidePath)).resolves.toBeUndefined();
 	});
 });
 

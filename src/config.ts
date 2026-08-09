@@ -8,6 +8,7 @@ export interface HandoffConfig {
 	enabled: boolean;
 	thresholdPercent: number;
 	autoContinue: boolean;
+	retainHandoffFiles: boolean;
 	handoffDirectory: string;
 	maxOutputTokens: number;
 	generationTimeoutMs: number;
@@ -23,6 +24,7 @@ export function createDefaultConfig(agentDir: string): HandoffConfig {
 		enabled: true,
 		thresholdPercent: 70,
 		autoContinue: true,
+		retainHandoffFiles: false,
 		handoffDirectory: join(agentDir, "threadshift", "handoffs"),
 		maxOutputTokens: 8_192,
 		generationTimeoutMs: 120_000,
@@ -33,6 +35,7 @@ const CONFIG_KEYS = new Set<keyof HandoffConfig>([
 	"enabled",
 	"thresholdPercent",
 	"autoContinue",
+	"retainHandoffFiles",
 	"handoffDirectory",
 	"maxOutputTokens",
 	"generationTimeoutMs",
@@ -75,6 +78,12 @@ function validateLayer(value: unknown, configPath: string): Partial<HandoffConfi
 			throw new Error(`${configPath}: autoContinue must be a boolean`);
 		}
 		layer.autoContinue = value.autoContinue;
+	}
+	if (value.retainHandoffFiles !== undefined) {
+		if (typeof value.retainHandoffFiles !== "boolean") {
+			throw new Error(`${configPath}: retainHandoffFiles must be a boolean`);
+		}
+		layer.retainHandoffFiles = value.retainHandoffFiles;
 	}
 	if (value.handoffDirectory !== undefined) {
 		if (typeof value.handoffDirectory !== "string" || value.handoffDirectory.trim().length === 0) {

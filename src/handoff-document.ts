@@ -1,8 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { mkdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 
 export const MAX_HANDOFF_FILE_BYTES = 1_048_576;
+
+const OWNED_HANDOFF_FILE_PATTERN =
+	/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z_[a-zA-Z0-9_-]{1,12}_[0-9a-f]{8}\.md$/;
+
+export type HandoffRemovalResult = "deleted" | "missing" | "refused";
 
 export const HANDOFF_SYSTEM_PROMPT = `You are producing a durable engineering handoff for a fresh coding-agent session.
 
@@ -137,6 +142,21 @@ export async function writeHandoffDocument(options: {
 	return targetPath;
 }
 
+export async function removeOwnedHandoffDocument(path: string, directory: string): Promise<HandoffRemovalResult> {
+	const resolvedPath = resolve(path);
+	if (dirname(resolvedPath) !== resolve(directory) || !OWNED_HANDOFF_FILE_PATTERN.test(basename(resolvedPath))) {
+		return "refused";
+	}
+
+	try {
+		await unlink(resolvedPath);
+		return "deleted";
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return "missing";
+		throw error;
+	}
+}
+
 export async function readHandoffDocument(path: string): Promise<string> {
 	const info = await stat(path);
 	if (!info.isFile()) throw new Error(`Handoff path is not a file: ${path}`);
@@ -151,7 +171,7 @@ export function buildContinuationPrompt(path: string, document: string): string 
 
 First verify its important claims against the current repository state. Then continue from the documented next step unless repository evidence or my requirements contradict it. Do not merely summarize the handoff.
 
-Handoff file: ${path}
+Handoff staging file (it may be removed after successful continuation): ${path}
 
 <handoff>
 ${document.trim()}

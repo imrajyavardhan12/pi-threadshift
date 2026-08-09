@@ -28,6 +28,7 @@ import {
 	extractResponseText,
 	HANDOFF_SYSTEM_PROMPT,
 	readHandoffDocument,
+	removeOwnedHandoffDocument,
 	renderHandoffDocument,
 	writeHandoffDocument,
 } from "../src/handoff-document.ts";
@@ -138,6 +139,36 @@ function clearReadyHandoffUi(ctx: ExtensionContext, state?: ReadyHandoffState): 
 	}
 }
 
+type CleanupResult = "deleted" | "missing" | "retained" | "kept";
+
+async function cleanUpHandoffFile(options: {
+	path: string;
+	directory: string;
+	retain: boolean;
+	notify: (message: string, level: "warning") => void;
+}): Promise<CleanupResult> {
+	if (options.retain) return "retained";
+	const warn = (message: string): void => {
+		try {
+			options.notify(message, "warning");
+		} catch {
+			// Cleanup and its reporting must never break a successful session transition.
+		}
+	};
+
+	try {
+		const result = await removeOwnedHandoffDocument(options.path, options.directory);
+		if (result === "refused") {
+			warn("Threadshift kept a handoff file because its path did not match the managed handoff directory");
+			return "kept";
+		}
+		return result;
+	} catch (error) {
+		warn(`Threadshift could not remove a handoff file: ${errorMessage(error)}`);
+		return "kept";
+	}
+}
+
 export default function threadshiftExtension(pi: ExtensionAPI) {
 	let config = createDefaultConfig(getAgentDir());
 	let pending: ReadyHandoffState | undefined;
@@ -178,6 +209,7 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 		if (inFlight) throw new Error("A Threadshift handoff is already being generated");
 		if (!ctx.model) throw new Error("No model is selected");
 
+		const previousPending = pending;
 		inFlight = true;
 		ctx.ui.setStatus(STATUS_ID, "preparing Threadshift handoff…");
 
@@ -264,6 +296,14 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 			};
 			appendState(state);
 			pending = state;
+			if (previousPending && previousPending.path !== state.path) {
+				await cleanUpHandoffFile({
+					path: previousPending.path,
+					directory: config.handoffDirectory,
+					retain: config.retainHandoffFiles,
+					notify: (message, level) => ctx.ui.notify(message, level),
+				});
+			}
 			return state;
 		} finally {
 			inFlight = false;
@@ -280,6 +320,9 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 		const parentSession = ctx.sessionManager.getSessionFile();
 		const autoContinue = config.autoContinue;
 		const previousPending = pending;
+		const trackedHandoff = previousPending?.path === path;
+		const cleanupDirectory = config.handoffDirectory;
+		const retainHandoffFiles = config.retainHandoffFiles;
 
 		appendState({
 			version: STATE_VERSION,
@@ -300,6 +343,14 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 
 				try {
 					await replacementCtx.sendUserMessage(kickoff);
+					if (trackedHandoff) {
+						await cleanUpHandoffFile({
+							path,
+							directory: cleanupDirectory,
+							retain: retainHandoffFiles,
+							notify: (message, level) => replacementCtx.ui.notify(message, level),
+						});
+					}
 				} catch (error) {
 					replacementCtx.ui.setEditorText(kickoff);
 					replacementCtx.ui.notify(`Could not auto-continue: ${errorMessage(error)}`, "error");
@@ -524,7 +575,18 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 			pending = undefined;
 			suppressAtCurrentContext(ctx);
 			clearReadyHandoffUi(ctx, dismissed);
-			ctx.ui.notify("Threadshift handoff dismissed; the document was kept on disk", "info");
+			const cleanup = await cleanUpHandoffFile({
+				path: dismissed.path,
+				directory: config.handoffDirectory,
+				retain: config.retainHandoffFiles,
+				notify: (message, level) => ctx.ui.notify(message, level),
+			});
+			ctx.ui.notify(
+				cleanup === "deleted" || cleanup === "missing"
+					? "Threadshift handoff dismissed; the staging document was removed"
+					: "Threadshift handoff dismissed; the staging document was retained",
+				"info",
+			);
 		},
 	});
 
@@ -538,6 +600,7 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 					`Threadshift: ${config.enabled ? "enabled" : "disabled"}`,
 					`Usage: ${percent}; threshold: ${config.thresholdPercent}%`,
 					`Auto-continue: ${config.autoContinue ? "yes" : "no"}`,
+					`Retain handoff files: ${config.retainHandoffFiles ? "yes" : "no"}`,
 					`Directory: ${config.handoffDirectory}`,
 					`Pending: ${pending?.path ?? "none"}`,
 					`Suppressed for current context: ${isSuppressed() ? "yes" : "no"}`,

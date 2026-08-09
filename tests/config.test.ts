@@ -37,6 +37,7 @@ describe("loadConfig", () => {
 		expect(result.warnings).toEqual([]);
 		expect(result.config.thresholdPercent).toBe(80);
 		expect(result.config.autoContinue).toBe(false);
+		expect(result.config.retainHandoffFiles).toBe(false);
 		expect(result.config.handoffDirectory).toBe(join(projectDirectory, ".handoffs"));
 	});
 
@@ -51,6 +52,17 @@ describe("loadConfig", () => {
 		expect(result.config.thresholdPercent).toBe(defaults.thresholdPercent);
 		expect(result.warnings).toHaveLength(1);
 		expect(result.warnings[0]).toContain("unknown setting");
+	});
+
+	it("allows users to retain handoff files as an explicit archival policy", async () => {
+		const root = await tempDirectory();
+		const globalPath = join(root, "global.json");
+		await writeFile(globalPath, JSON.stringify({ retainHandoffFiles: true }));
+
+		const result = await loadConfig({ defaults: createDefaultConfig(join(root, "agent")), globalPath, cwd: root });
+
+		expect(result.warnings).toEqual([]);
+		expect(result.config.retainHandoffFiles).toBe(true);
 	});
 
 	it("does not warn for missing config files", async () => {

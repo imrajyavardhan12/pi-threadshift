@@ -30,4 +30,4 @@ Threadshift handoffs may contain sensitive conversations, source-code details, f
 
 ## Security boundaries
 
-Pi extensions execute with the user's operating-system permissions. Install Threadshift only from a source you trust. Threadshift reduces accidental disclosure through private file permissions and prompt guidance, but it cannot guarantee that a model provider, another local process with sufficient privileges, or user-configured output directory will keep handoff content confidential.
+Pi extensions execute with the user's operating-system permissions. Install Threadshift only from a source you trust. Threadshift reduces accidental disclosure through private file permissions, lifecycle cleanup, and prompt guidance, but it cannot guarantee that a model provider, another local process with sufficient privileges, or user-configured output directory will keep handoff content confidential. Automatic cleanup performs a normal filesystem deletion, not guaranteed secure erasure from storage media, snapshots, or backups.
