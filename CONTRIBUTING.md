@@ -4,9 +4,9 @@ Thanks for helping improve Threadshift.
 
 ## Prerequisites
 
-- Node.js 22.19.0 or newer
+- Node.js 22.23.2 or Node.js 24.18.1 or newer within the supported release lines
 - Corepack
-- Pi 0.83.0 for compatibility testing
+- Pi 0.84.1, with compatibility constrained to the Pi 0.84.x line
 
 ## Setup
 

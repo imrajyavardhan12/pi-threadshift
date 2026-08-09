@@ -54,6 +54,20 @@ describe("loadConfig", () => {
 		expect(result.warnings[0]).toContain("unknown setting");
 	});
 
+	it("rejects a non-boolean retention setting with the rest of its layer", async () => {
+		const root = await tempDirectory();
+		const globalPath = join(root, "global.json");
+		await writeFile(globalPath, JSON.stringify({ retainHandoffFiles: "yes", thresholdPercent: 85 }));
+		const defaults = createDefaultConfig(join(root, "agent"));
+
+		const result = await loadConfig({ defaults, globalPath, cwd: root });
+
+		expect(result.config.retainHandoffFiles).toBe(false);
+		expect(result.config.thresholdPercent).toBe(defaults.thresholdPercent);
+		expect(result.warnings).toHaveLength(1);
+		expect(result.warnings[0]).toContain("retainHandoffFiles must be a boolean");
+	});
+
 	it("allows users to retain handoff files as an explicit archival policy", async () => {
 		const root = await tempDirectory();
 		const globalPath = join(root, "global.json");

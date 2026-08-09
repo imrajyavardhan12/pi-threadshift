@@ -1,4 +1,4 @@
-import { access, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, stat, symlink, unlink, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -69,6 +69,7 @@ describe("handoff document persistence", () => {
 
 		expect(firstPath).not.toBe(secondPath);
 		expect(await readFile(firstPath, "utf8")).toBe(document);
+		expect(await readHandoffDocument(firstPath)).toBe(document);
 		if (process.platform !== "win32") {
 			expect((await stat(firstPath)).mode & 0o777).toBe(0o600);
 		}
@@ -81,6 +82,14 @@ describe("handoff document persistence", () => {
 		await writeFile(path, Buffer.alloc(1_048_577));
 
 		await expect(readHandoffDocument(path)).rejects.toThrow("exceeds");
+	});
+
+	it("reads and validates a handoff through one opened file", async () => {
+		const directory = await tempDirectory();
+		const path = join(directory, "handoff.md");
+		await writeFile(path, "# handoff");
+
+		expect(await readHandoffDocument(path)).toBe("# handoff");
 	});
 
 	it("removes only Threadshift-owned documents from the configured directory", async () => {
@@ -108,6 +117,26 @@ describe("handoff document persistence", () => {
 		expect(await removeOwnedHandoffDocument(outsidePath, directory)).toBe("refused");
 		await expect(access(arbitraryPath)).resolves.toBeUndefined();
 		await expect(access(outsidePath)).resolves.toBeUndefined();
+	});
+
+	it("removes a managed leaf symlink without removing its target", async () => {
+		if (process.platform === "win32") return;
+		const root = await tempDirectory();
+		const directory = join(root, "handoffs");
+		const managedPath = await writeHandoffDocument({
+			directory,
+			document: "temporary",
+			generatedAt: "2026-08-06T01:02:03.456Z",
+			sessionId: "session-123456789",
+		});
+		const targetPath = join(root, "keep.md");
+		await writeFile(targetPath, "keep me");
+		await unlink(managedPath);
+		await symlink(targetPath, managedPath);
+
+		expect(await removeOwnedHandoffDocument(managedPath, directory)).toBe("deleted");
+		await expect(access(managedPath)).rejects.toMatchObject({ code: "ENOENT" });
+		expect(await readFile(targetPath, "utf8")).toBe("keep me");
 	});
 });
 

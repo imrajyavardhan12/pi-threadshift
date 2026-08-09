@@ -133,7 +133,8 @@ The continuation prompt tells the fresh agent to verify important claims against
 - Conversation and tool output are treated as untrusted source material to reduce prompt-injection risk.
 - Project-local configuration is read only when Pi reports the project as trusted.
 - Pending or failed handoffs remain available for recovery; successfully transferred staging files are deleted by default.
-- Automatic cleanup only removes recognized Threadshift filenames from the configured handoff directory and never removes manually supplied handoff paths.
+- Automatic cleanup only removes recognized Threadshift filenames from the configured handoff directory and never removes arbitrary or untracked handoff paths.
+- Cleanup removes the staging file only. The full handoff remains in the replacement Pi session and follows Pi's session-retention behavior.
 
 ## Package discovery
 
@@ -146,4 +147,4 @@ pnpm release:check
 pnpm pack --dry-run
 ```
 
-Development targets Pi `0.83.0`. Pi runtime libraries are peer dependencies, as recommended for distributed Pi packages.
+Development targets Pi `0.84.1`; compatible hosts are constrained to the `0.84.x` line. Supported Node.js versions begin at `22.23.2` for Node 22 and `24.18.1` for newer releases. Pi runtime libraries are peer dependencies, as recommended for distributed Pi packages.

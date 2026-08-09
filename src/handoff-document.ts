@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, open, rename, rm, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 
 export const MAX_HANDOFF_FILE_BYTES = 1_048_576;
@@ -158,12 +158,22 @@ export async function removeOwnedHandoffDocument(path: string, directory: string
 }
 
 export async function readHandoffDocument(path: string): Promise<string> {
-	const info = await stat(path);
-	if (!info.isFile()) throw new Error(`Handoff path is not a file: ${path}`);
-	if (info.size > MAX_HANDOFF_FILE_BYTES) {
-		throw new Error(`Handoff file exceeds ${MAX_HANDOFF_FILE_BYTES} bytes: ${basename(path)}`);
+	const handle = await open(path, "r");
+	try {
+		const info = await handle.stat();
+		if (!info.isFile()) throw new Error(`Handoff path is not a file: ${path}`);
+		if (info.size > MAX_HANDOFF_FILE_BYTES) {
+			throw new Error(`Handoff file exceeds ${MAX_HANDOFF_FILE_BYTES} bytes: ${basename(path)}`);
+		}
+
+		const contents = await handle.readFile();
+		if (contents.byteLength > MAX_HANDOFF_FILE_BYTES) {
+			throw new Error(`Handoff file exceeds ${MAX_HANDOFF_FILE_BYTES} bytes: ${basename(path)}`);
+		}
+		return contents.toString("utf8");
+	} finally {
+		await handle.close();
 	}
-	return readFile(path, "utf8");
 }
 
 export function buildContinuationPrompt(path: string, document: string): string {
