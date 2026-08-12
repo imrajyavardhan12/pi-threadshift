@@ -142,7 +142,11 @@ The [`pi-package`](package.json) keyword makes published npm versions discoverab
 
 ## Development
 
+Use the project runtime from `.nvmrc`; it is independent of the workstation's
+NVM default.
+
 ```bash
+nvm use # when using NVM
 pnpm release:check
 pnpm pack --dry-run
 ```
