@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.1.0-beta.2] - 2026-08-12
+
+### Added
+
+- Protected npm trusted publishing through GitHub Actions OIDC, with provenance, release identity checks, and a manual deployment gate.
+- A canonical pi.dev package-page link in the README.
+
+### Changed
+
+- Pin the development runtime in `.nvmrc` without changing the supported Node.js range.
+- Refresh Vitest and Node.js type definitions within their supported major versions.
+- Document protected pull-request releases, npm dist-tag policy, registry verification, and pi.dev browse-index limitations.
+
 ## [0.1.0-beta.1] - 2026-08-06
 
 ### Added
@@ -27,5 +40,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Require Pi `0.84.x`, develop against Pi `0.84.1`, and raise Node.js validation baselines to `22.23.2` and `24.18.1`.
 - Clarify that cleanup removes only tracked staging files while handoff content remains in Pi session storage.
 
-[Unreleased]: https://github.com/imrajyavardhan12/pi-threadshift/compare/v0.1.0-beta.1...HEAD
+[Unreleased]: https://github.com/imrajyavardhan12/pi-threadshift/compare/v0.1.0-beta.2...HEAD
+[0.1.0-beta.2]: https://github.com/imrajyavardhan12/pi-threadshift/compare/v0.1.0-beta.1...v0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/imrajyavardhan12/pi-threadshift/releases/tag/v0.1.0-beta.1
