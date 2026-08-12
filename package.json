@@ -1,6 +1,6 @@
 {
   "name": "pi-threadshift",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "packageManager": "pnpm@11.5.2",
   "description": "Threadshift preserves working context and carries it into a fresh Pi session before the window becomes crowded.",
   "author": "Rajyavardhan Singh",
