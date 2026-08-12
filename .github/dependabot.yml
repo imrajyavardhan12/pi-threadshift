@@ -9,3 +9,12 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    ignore:
+      # Keep compiler and platform types aligned with the supported runtime matrix.
+      # Upgrade these majors through dedicated compatibility PRs instead.
+      - dependency-name: "@types/node"
+        update-types:
+          - version-update:semver-major
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major

@@ -6,13 +6,28 @@ Threadshift is published to the public npm registry. `pi.dev/packages` is a gall
 
 The gallery's current implementation queries the npm Search API for `keywords:pi-package`, then fetches each package's `latest` manifest. There is no separate upload or repository-submission step.
 
+## One-time trusted-publisher setup
+
+Future releases publish from `.github/workflows/publish.yml` through npm trusted publishing. No npm token belongs in GitHub secrets.
+
+In the npm settings for `pi-threadshift`, configure a GitHub Actions trusted publisher with these case-sensitive values:
+
+- Organization or user: `imrajyavardhan12`
+- Repository: `pi-threadshift`
+- Workflow filename: `publish.yml`
+- Environment: `npm`
+- Allowed action: `npm publish`
+
+The repository's protected GitHub environment named `npm` has a required reviewer (`imrajyavardhan12`), no wait timer, and a deployment policy limited to tags matching `v*`. Self-review remains allowed so the sole maintainer can approve a release. The workflow uses a GitHub-hosted runner, grants only `contents: read` and `id-token: write`, validates that the tag matches `package.json`, and refuses tags whose commit is not on `main`. Trusted publishing generates npm provenance automatically for this public package.
+
+After the first trusted publication succeeds, configure npm publishing access to **Require two-factor authentication and disallow tokens**. That setting continues to permit trusted publishing while rejecting long-lived write tokens.
+
 ## Prerequisites
 
-- Clean `main` branch with passing CI
+- Clean, protected `main` branch with passing CI
 - The Node.js runtime declared in `.nvmrc` selected with the existing runtime manager
-- npm account with publish access to `pi-threadshift`
-- Working registry authentication (`pnpm whoami`)
-- Any npm 2FA requirement satisfied
+- npm trusted-publisher settings matching the workflow and GitHub environment above
+- The target package version does not already exist on npm
 
 ## Prepare a release
 
@@ -35,31 +50,30 @@ The gallery's current implementation queries the npm Search API for `keywords:pi
    rm pi-threadshift-*.tgz
    ```
 
-5. Commit and push the release changes; wait for CI.
+5. Open a pull request for the release changes, wait for every required check, and merge it into `main`.
 
-## Publish the beta
+## Publish
 
-Authenticate if necessary:
-
-```bash
-pnpm login
-pnpm whoami
-```
-
-Publish the prerelease under the beta dist-tag:
+Create an annotated tag from the merged release commit. The tag must exactly equal `v` followed by the version in `package.json`:
 
 ```bash
-pnpm publish --tag beta --access public
+git switch main
+git pull --ff-only
+version=$(node --print "require('./package.json').version")
+git tag -a "v$version" -m "pi-threadshift v$version"
+git push origin "v$version"
 ```
+
+The tag starts the protected `Publish` workflow. Approve its `npm` environment deployment after confirming the tag, commit, and version. The workflow publishes `*-beta.*` versions under `beta`, stable versions under `latest`, and rejects other prerelease identifiers.
 
 Verify the registry artifact rather than the working tree:
 
 ```bash
-pnpm view pi-threadshift@0.1.0-beta.1 name version dist-tags keywords
-pi -e npm:pi-threadshift@0.1.0-beta.1
+pnpm view "pi-threadshift@$version" name version dist-tags keywords dist.integrity
+pnpm exec pi --no-extensions -e "npm:pi-threadshift@$version" --list-models gpt-5.6-sol
 ```
 
-Then create and push `v0.1.0-beta.1`, and create a GitHub prerelease from the changelog.
+Inspect the registry tarball if the workflow output differs from the reviewed package dry run. Then create the GitHub release from the changelog, marking prereleases appropriately. Never reuse or move a published release tag.
 
 ## `pi.dev/packages` discovery
 
@@ -68,7 +82,9 @@ The package already declares both requirements:
 - `keywords` contains `pi-package`
 - `pi.extensions` contains `./extensions/threadshift.ts`
 
-After npm publishes and indexes the package, the gallery discovers it automatically. The gallery caches results in each browser for 15 minutes, so a newly indexed package may not appear immediately.
+Every published version has a canonical direct page at <https://pi.dev/packages/pi-threadshift>. The gallery caches browser data for 15 minutes.
+
+Browse/search inclusion is less reliable: the gallery paginates npm's broad `keywords:pi-package` search, and npm can omit new packages with low search scores from the accessible result window. A valid package may therefore have a working direct page while remaining absent from browse/search. Republishing unchanged metadata is not a remedy.
 
 The gallery currently builds an unversioned install command and fetches `/latest`. Inspect dist-tags after every publication:
 
@@ -80,23 +96,17 @@ npmjs.org assigns `latest` on a package's first publication even when that versi
 
 Once a stable version owns `latest`, subsequent prereleases published with `--tag beta` leave `latest` on stable and remain opt-in through `npm:pi-threadshift@beta`. Do not move `latest` to a later prerelease accidentally; replace it with the stable version when stable is released.
 
-To inspect npm search indexing directly:
+To inspect exact-name npm search metadata separately from the broad gallery query:
 
 ```bash
 curl -sG 'https://registry.npmjs.org/-/v1/search' \
-  --data-urlencode 'text=keywords:pi-package pi-threadshift' \
+  --data-urlencode 'text=threadshift' \
   --data-urlencode 'size=20'
 ```
 
 ## Stable release
 
-When beta compatibility and recovery behavior are proven:
-
-```bash
-pnpm publish --tag latest --access public
-```
-
-Verify installation with `pi install npm:pi-threadshift`, then check `https://pi.dev/packages` after npm search indexing and the gallery cache have refreshed.
+When beta compatibility and recovery behavior are proven, prepare `0.1.0` and use the same protected tag workflow. It assigns `latest` to stable while retaining `beta` for prereleases. Verify installation with `pi install npm:pi-threadshift` and verify the direct pi.dev package page.
 
 ## Sources
 
@@ -105,3 +115,5 @@ Verify installation with `pi install npm:pi-threadshift`, then check `https://pi
 - Gallery implementation: <https://github.com/earendil-works/pi-website/blob/main/src/packages.html>
 - npm dist-tags: <https://docs.npmjs.com/cli/v11/commands/npm-dist-tag/>
 - npm first-publication dist-tag behavior: <https://github.com/npm/cli/issues/8490#issuecomment-3164821719>
+- npm trusted publishing: <https://docs.npmjs.com/trusted-publishers/>
+- npm provenance: <https://docs.npmjs.com/generating-provenance-statements/>
