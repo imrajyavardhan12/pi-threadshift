@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/imrajyavardhan12/pi-threadshift/actions/workflows/ci.yml/badge.svg)](https://github.com/imrajyavardhan12/pi-threadshift/actions/workflows/ci.yml)
 
+[Pi package page](https://pi.dev/packages/pi-threadshift) · [npm package](https://www.npmjs.com/package/pi-threadshift) · [Releases](https://github.com/imrajyavardhan12/pi-threadshift/releases)
+
 **Threadshift** preserves the working context of a long Pi session and carries it into a fresh one before the context window becomes crowded.
 
 At 70% usage by default, Threadshift summarizes the active, compaction-aware conversation, captures the current Git working-tree summary, writes a private Markdown handoff, and prepares a replacement session.
@@ -47,19 +49,14 @@ pi install git:github.com/imrajyavardhan12/pi-threadshift
 
 Restart Pi or run `/reload` after installation.
 
-For local development:
+For local development, use the project-pinned runtime and tools:
 
 ```bash
-pnpm install
+nvm use # when using NVM
+pnpm install --frozen-lockfile
 pnpm check
 pnpm test
-pi install /Users/rvs/Developer/pi-threadshift
-```
-
-To test without installing:
-
-```bash
-pi -e /Users/rvs/Developer/pi-threadshift
+pnpm exec pi --no-extensions -e .
 ```
 
 ## Commands
@@ -138,7 +135,7 @@ The continuation prompt tells the fresh agent to verify important claims against
 
 ## Package discovery
 
-The [`pi-package`](package.json) keyword makes published npm versions discoverable by the [Pi package gallery](https://pi.dev/packages). There is no separate gallery upload. Beta releases remain opt-in under the `beta` dist-tag unless `latest` is deliberately assigned. See [the release guide](docs/RELEASING.md) for npm authentication, dist-tag policy, verification, and gallery-indexing details.
+Published versions have a canonical [Threadshift package page on pi.dev](https://pi.dev/packages/pi-threadshift). The [`pi-package`](package.json) keyword also makes packages eligible for the gallery's browse index; browse/search visibility depends on npm's broad keyword-search results and can lag or omit low-ranked new packages. There is no separate gallery upload. See [the release guide](https://github.com/imrajyavardhan12/pi-threadshift/blob/main/docs/RELEASING.md) for trusted publishing, dist-tag policy, verification, and gallery-indexing details.
 
 ## Development
 

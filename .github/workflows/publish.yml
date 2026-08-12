@@ -1,0 +1,118 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  npm:
+    name: npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm
+    env:
+      CI: true
+      PI_OFFLINE: "1"
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 11.5.2
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: Validate release identity
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          name=$(node --print "require('./package.json').name")
+          version=$(node --print "require('./package.json').version")
+
+          if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match package version $version" >&2
+            exit 1
+          fi
+
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "Release tag must point to a commit on main" >&2
+            exit 1
+          fi
+
+          case "$version" in
+            *-beta.*) dist_tag=beta ;;
+            *-*)
+              echo "Unsupported prerelease identifier in $version" >&2
+              exit 1
+              ;;
+            *) dist_tag=latest ;;
+          esac
+
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version is already published" >&2
+            exit 1
+          fi
+
+          npm_version=$(npm --version)
+          node -e '
+            const [major = 0, minor = 0, patch = 0] = process.argv[1].split(/[.-]/).map(Number);
+            if (major < 11 || (major === 11 && (minor < 5 || (minor === 5 && patch < 1)))) {
+              throw new Error("npm " + process.argv[1] + " does not support trusted publishing; require >=11.5.1");
+            }
+          ' "$npm_version"
+
+          {
+            echo "name=$name"
+            echo "version=$version"
+            echo "dist-tag=$dist_tag"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate release
+        run: |
+          pnpm release:check
+          pnpm pack --dry-run
+
+      - name: Publish with npm trusted publishing
+        run: npm publish --tag "${{ steps.release.outputs.dist-tag }}" --access public
+
+      - name: Verify registry publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="${{ steps.release.outputs.name }}@${{ steps.release.outputs.version }}"
+          for attempt in {1..12}; do
+            if [[ "$(npm view "$package" version 2>/dev/null)" == "${{ steps.release.outputs.version }}" ]]; then
+              npm view "$package" name version dist-tags dist.integrity
+              exit 0
+            fi
+            echo "Registry verification attempt $attempt/12 did not find $package yet"
+            sleep 5
+          done
+          echo "Registry did not return $package after publication" >&2
+          exit 1
