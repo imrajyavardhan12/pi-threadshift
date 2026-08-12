@@ -4,15 +4,18 @@ Thanks for helping improve Threadshift.
 
 ## Prerequisites
 
-- Node.js 22.23.2 or Node.js 24.18.1 or newer within the supported release lines
+- Node.js 24.18.1 as the preferred local runtime, pinned in `.nvmrc`
 - Corepack
 - Pi 0.84.1, with compatibility constrained to the Pi 0.84.x line
+
+CI additionally verifies the supported Node.js 22.23.2 compatibility line.
 
 ## Setup
 
 ```bash
 git clone https://github.com/imrajyavardhan12/pi-threadshift.git
 cd pi-threadshift
+nvm use # when using NVM
 corepack enable
 pnpm install --frozen-lockfile
 ```
@@ -32,7 +35,7 @@ pnpm audit --prod
 For an interactive test without installing globally:
 
 ```bash
-pi --no-extensions -e .
+pnpm exec pi --no-extensions -e .
 ```
 
 Then run `/threadshift-status` and `/threadshift Test the replacement-session workflow`.

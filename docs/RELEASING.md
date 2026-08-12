@@ -9,6 +9,7 @@ The gallery's current implementation queries the npm Search API for `keywords:pi
 ## Prerequisites
 
 - Clean `main` branch with passing CI
+- The Node.js runtime declared in `.nvmrc` selected with the existing runtime manager
 - npm account with publish access to `pi-threadshift`
 - Working registry authentication (`pnpm whoami`)
 - Any npm 2FA requirement satisfied
@@ -20,6 +21,7 @@ The gallery's current implementation queries the npm Search API for `keywords:pi
 3. Run:
 
    ```bash
+   nvm use # when using NVM
    pnpm install --frozen-lockfile
    pnpm release:check
    pnpm pack --dry-run
