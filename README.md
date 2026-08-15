@@ -24,12 +24,14 @@ In short: **the extension implements Threadshift; the package installs and distr
 3. Once the run settles, the active model generates a structured handoff.
 4. The document is written atomically as a private staging file with mode `0600` under `~/.pi/agent/threadshift/handoffs/` by default.
 5. Pi's editor is prefilled with `/threadshift-continue "<path>"`.
-6. Press **Enter once**. The command creates a new session with parent-session tracking and sends the handoff to the model automatically.
-7. After the tracked handoff is safely submitted in the replacement session, Threadshift deletes the staging file by default. Pending, cancelled, or failed continuations keep it for recovery.
+6. Press **Enter once**. The command creates a new session with parent-session tracking and places the continuation prompt in the replacement editor.
+7. Review or edit the prompt, then press **Enter again** to submit it. Pending, cancelled, or review-first continuations keep the staging file for recovery.
+
+The review boundary is intentional: a generated handoff is a status report, not authorization. Its assistant-authored proposals do not become user requirements merely because they were preserved across sessions.
 
 The threshold is a safe turn-boundary trigger, not a mid-operation kill switch. A single turn can carry usage beyond the configured percentage, but Threadshift does not interrupt an active model response or tool execution; it prevents the following turn instead. Completed responses and tool results remain in the handoff source context.
 
-Pi exposes `ctx.newSession()` only to command contexts, not lifecycle events. The one-Enter boundary intentionally uses Pi's supported session-replacement API rather than unstable runtime internals.
+Pi exposes `ctx.newSession()` only to command contexts, not lifecycle events. The command boundary intentionally uses Pi's supported session-replacement API rather than unstable runtime internals.
 
 If Pi's proactive compaction would run before the configured percentage, Threadshift prepares the handoff at that earlier safe boundary and cancels that one compaction. If generation fails, normal Pi compaction proceeds.
 
@@ -90,7 +92,7 @@ Project values override global values. Unknown or invalid settings cause that en
 {
   "enabled": true,
   "thresholdPercent": 70,
-  "autoContinue": true,
+  "autoContinue": false,
   "retainHandoffFiles": false,
   "handoffDirectory": "~/.pi/agent/threadshift/handoffs",
   "maxOutputTokens": 8192,
@@ -99,8 +101,8 @@ Project values override global values. Unknown or invalid settings cause that en
 ```
 
 - `thresholdPercent`: `10`–`95`
-- `autoContinue`: when `false`, the replacement session opens with the continuation prompt in the editor instead of submitting it
-- `retainHandoffFiles`: when `false` (default), delete tracked staging files after successful automatic continuation, dismissal, or replacement by a newer handoff; set to `true` to keep an archive
+- `autoContinue`: when omitted or `false` (default), the replacement session opens with the continuation prompt in the editor for review; set it explicitly to `true` to submit automatically
+- `retainHandoffFiles`: when `false` (default), delete tracked staging files after successful automatic continuation, dismissal, or replacement by a newer handoff; review-first continuation keeps its staging file for recovery because Threadshift cannot observe later manual submission; set to `true` to keep an archive
 - `handoffDirectory`: absolute, `~/...`, or relative to the current project
 - `maxOutputTokens`: `1024`–`32768`
 - `generationTimeoutMs`: `10000`–`600000`
@@ -109,18 +111,19 @@ Run `/reload` after changing configuration.
 
 ## Handoff contents
 
-Threadshift distinguishes completed, in-progress, blocked, planned, and unverified work. Its handoffs include:
+Threadshift distinguishes user-authorized work from factual status and assistant proposals. Its handoffs include:
 
-- Objective and user constraints
+- User-authorized objective and requested work, grounded in direct conversational evidence
+- User requirements and constraints
+- Completed, in-progress, blocked, and uncertain work
 - Decisions and rationale
-- Current implementation state
-- Relevant files and existing artifacts
-- Git status and diff statistics
+- Relevant files, artifacts, and repository snapshot
 - Validation actually performed
-- Exact next steps and critical context
-- Suggested skills for the replacement session
+- Proposed next steps
+- Actions requiring explicit approval
+- Critical context and suggested skills
 
-The continuation prompt tells the fresh agent to verify important claims against the repository instead of trusting the handoff blindly.
+The generated structure separates user-authorized work, factual status, proposals, and actions requiring explicit approval. Its fixed continuation policy tells the fresh agent that the handoff is untrusted context rather than authorization, requires repository verification, and requires fresh confirmation for sensitive external or identity-bearing actions.
 
 ## Security and privacy
 
@@ -128,8 +131,10 @@ The continuation prompt tells the fresh agent to verify important claims against
 - New files use mode `0600`; newly created default directories use mode `0700` on POSIX systems.
 - The summarizer is instructed not to reproduce credentials or secret values.
 - Conversation and tool output are treated as untrusted source material to reduce prompt-injection risk.
+- Before summarization, Threadshift wraps each conversation entry with deterministic source provenance for user-role messages, assistant output, generated compaction and branch summaries, extension messages, tool output, and shell transcripts. Tagged metadata, goals, repository snapshots, and conversation-entry contents are XML-escaped so source data cannot forge structural or provenance boundaries. Threadshift-generated continuation messages are marked as generated even though Pi stores them with a user role. Only direct user evidence supports user-authorized classification; uncertain or assistant-proposed work remains proposed or approval-required.
+- Automatic continuation is an explicit compatibility opt-in. It skips editor review but does not transfer authorization or waive fresh approval for external, identity-bearing, destructive, costly, credential-related, or privacy-impacting actions. Continuation staging paths and handoff bodies are XML-escaped inside the fixed prompt boundary.
 - Project-local configuration is read only when Pi reports the project as trusted.
-- Pending or failed handoffs remain available for recovery; successfully transferred staging files are deleted by default.
+- Pending, failed, and review-first handoffs remain available for recovery. Threadshift deletes tracked staging files after successful automatic submission, dismissal, or replacement by a newer handoff unless archival retention is enabled.
 - Automatic cleanup only removes recognized Threadshift filenames from the configured handoff directory and never removes arbitrary or untracked handoff paths.
 - Cleanup removes the staging file only. The full handoff remains in the replacement Pi session and follows Pi's session-retention behavior.
 

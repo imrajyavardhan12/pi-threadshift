@@ -17,7 +17,43 @@ afterEach(async () => {
 	await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
 });
 
+describe("createDefaultConfig", () => {
+	it("requires human review before continuing by default", () => {
+		expect(createDefaultConfig("/agent").autoContinue).toBe(false);
+	});
+});
+
 describe("loadConfig", () => {
+	it("uses the review-first default when configuration omits autoContinue", async () => {
+		const root = await tempDirectory();
+		const globalPath = join(root, "global.json");
+		await writeFile(globalPath, JSON.stringify({ thresholdPercent: 75 }));
+
+		const result = await loadConfig({
+			defaults: createDefaultConfig(join(root, "agent")),
+			globalPath,
+			cwd: root,
+		});
+
+		expect(result.warnings).toEqual([]);
+		expect(result.config.autoContinue).toBe(false);
+	});
+
+	it("preserves automatic continuation when explicitly enabled", async () => {
+		const root = await tempDirectory();
+		const globalPath = join(root, "global.json");
+		await writeFile(globalPath, JSON.stringify({ autoContinue: true }));
+
+		const result = await loadConfig({
+			defaults: createDefaultConfig(join(root, "agent")),
+			globalPath,
+			cwd: root,
+		});
+
+		expect(result.warnings).toEqual([]);
+		expect(result.config.autoContinue).toBe(true);
+	});
+
 	it("merges defaults, global settings, and trusted project settings in precedence order", async () => {
 		const root = await tempDirectory();
 		const projectDirectory = join(root, "project");

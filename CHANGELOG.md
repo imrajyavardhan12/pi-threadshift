@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Default `autoContinue` to `false`, adding a review/edit boundary before the replacement session submits generated context. Configurations that omit the setting adopt the safe default; explicit `autoContinue: true` configurations remain automatic.
+- Separate user-authorized work, assistant proposals, and approval-required actions in generated handoffs to prevent recommendation-to-requirement collapse.
+- Preserve deterministic source provenance for user-role messages, assistant output, generated summaries, extension messages, tool output, shell transcripts, and prior Threadshift continuations before LLM classification; XML-escape tagged source fields so untrusted data cannot forge provenance boundaries.
+- Add a fixed continuation safety policy that treats handoffs as untrusted status reports and requires fresh approval for sensitive external or identity-bearing actions, including in automatic compatibility mode; XML-escape the staged path and handoff body inside that boundary.
+
 ## [0.1.0-beta.2] - 2026-08-12
 
 ### Added
