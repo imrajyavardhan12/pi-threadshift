@@ -5,13 +5,14 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import threadshiftExtension from "../extensions/threadshift.ts";
 import { CONTINUE_COMMAND, DISMISS_COMMAND } from "../src/constants.ts";
-import { renderHandoffDocument, writeHandoffDocument } from "../src/handoff-document.ts";
+import { buildContinuationPrompt, renderHandoffDocument, writeHandoffDocument } from "../src/handoff-document.ts";
 import { STATE_ENTRY_TYPE, STATE_VERSION } from "../src/state.ts";
 
 type EventHandler = (event: Record<string, unknown>, ctx: Record<string, any>) => unknown;
 type CommandHandler = (args: string, ctx: Record<string, any>) => unknown;
 
 const temporaryDirectories: string[] = [];
+const originalAgentDirectory = process.env.PI_CODING_AGENT_DIR;
 
 async function tempDirectory(): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "pi-threadshift-retention-test-"));
@@ -20,6 +21,8 @@ async function tempDirectory(): Promise<string> {
 }
 
 afterEach(async () => {
+	if (originalAgentDirectory === undefined) delete process.env.PI_CODING_AGENT_DIR;
+	else process.env.PI_CODING_AGENT_DIR = originalAgentDirectory;
 	await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
 });
 
@@ -41,14 +44,19 @@ function loadExtension() {
 	return { handlers, commands, appendEntry };
 }
 
-async function readySession(retainHandoffFiles = false, autoContinue = true) {
+async function readySession(retainHandoffFiles = false, autoContinue?: boolean) {
 	const root = await tempDirectory();
 	const cwd = join(root, "project");
 	const handoffDirectory = join(root, "handoffs");
+	process.env.PI_CODING_AGENT_DIR = join(root, "agent");
 	await mkdir(join(cwd, ".pi"), { recursive: true });
 	await writeFile(
 		join(cwd, ".pi", "threadshift.json"),
-		JSON.stringify({ handoffDirectory, retainHandoffFiles, autoContinue }),
+		JSON.stringify({
+			handoffDirectory,
+			retainHandoffFiles,
+			...(autoContinue === undefined ? {} : { autoContinue }),
+		}),
 	);
 
 	const generatedAt = "2026-08-06T01:02:03.456Z";
@@ -112,7 +120,7 @@ async function readySession(retainHandoffFiles = false, autoContinue = true) {
 	return { ctx, document, handoffDirectory, path, ui };
 }
 
-function replacementSession(sendUserMessage = vi.fn(async () => undefined)) {
+function replacementSession(sendUserMessage = vi.fn(async (_message: string) => undefined)) {
 	const ui = {
 		notify: vi.fn(),
 		setEditorText: vi.fn(),
@@ -123,7 +131,7 @@ function replacementSession(sendUserMessage = vi.fn(async () => undefined)) {
 describe("handoff file retention", () => {
 	it("deletes a tracked handoff after successful automatic continuation", async () => {
 		const extension = loadExtension();
-		const session = await readySession();
+		const session = await readySession(false, true);
 		await extension.handlers.get("session_start")?.({ type: "session_start" }, session.ctx);
 		const replacement = replacementSession();
 		const commandCtx = {
@@ -137,12 +145,15 @@ describe("handoff file retention", () => {
 		await extension.commands.get(CONTINUE_COMMAND)?.("", commandCtx);
 
 		expect(replacement.sendUserMessage).toHaveBeenCalledOnce();
+		expect(replacement.sendUserMessage).toHaveBeenCalledWith(buildContinuationPrompt(session.path, session.document));
+		expect(replacement.sendUserMessage.mock.calls[0]?.[0]).toContain("not itself authorization");
+		expect(replacement.sendUserMessage.mock.calls[0]?.[0]).toContain("fresh explicit user confirmation");
 		await expect(access(session.path)).rejects.toMatchObject({ code: "ENOENT" });
 	});
 
 	it("retains the handoff when automatic continuation fails", async () => {
 		const extension = loadExtension();
-		const session = await readySession();
+		const session = await readySession(false, true);
 		await extension.handlers.get("session_start")?.({ type: "session_start" }, session.ctx);
 		const replacement = replacementSession(vi.fn(async () => Promise.reject(new Error("send failed"))));
 		const commandCtx = {
@@ -159,7 +170,32 @@ describe("handoff file retention", () => {
 		expect(replacement.ui.setEditorText).toHaveBeenCalledOnce();
 	});
 
-	it("retains the handoff until a manually submitted continuation is durable", async () => {
+	it("waits for reviewed submission and retains the handoff by default", async () => {
+		const extension = loadExtension();
+		const session = await readySession();
+		await extension.handlers.get("session_start")?.({ type: "session_start" }, session.ctx);
+		const replacement = replacementSession();
+		const commandCtx = {
+			...session.ctx,
+			newSession: vi.fn(async (options: { withSession: (ctx: Record<string, any>) => Promise<void> }) => {
+				await options.withSession(replacement.ctx);
+				return { cancelled: false };
+			}),
+		};
+
+		await extension.commands.get(CONTINUE_COMMAND)?.("", commandCtx);
+
+		expect(replacement.sendUserMessage).not.toHaveBeenCalled();
+		expect(replacement.ui.setEditorText).toHaveBeenCalledOnce();
+		expect(replacement.ui.setEditorText).toHaveBeenCalledWith(buildContinuationPrompt(session.path, session.document));
+		expect(replacement.ui.notify).toHaveBeenCalledWith(
+			"New session ready. Review or edit the handoff prompt, then submit it when ready.",
+			"info",
+		);
+		await expect(access(session.path)).resolves.toBeUndefined();
+	});
+
+	it("preserves an explicit review-first compatibility setting", async () => {
 		const extension = loadExtension();
 		const session = await readySession(false, false);
 		await extension.handlers.get("session_start")?.({ type: "session_start" }, session.ctx);
@@ -175,7 +211,7 @@ describe("handoff file retention", () => {
 		await extension.commands.get(CONTINUE_COMMAND)?.("", commandCtx);
 
 		expect(replacement.sendUserMessage).not.toHaveBeenCalled();
-		expect(replacement.ui.setEditorText).toHaveBeenCalledOnce();
+		expect(replacement.ui.setEditorText).toHaveBeenCalledWith(buildContinuationPrompt(session.path, session.document));
 		await expect(access(session.path)).resolves.toBeUndefined();
 	});
 
@@ -216,7 +252,7 @@ describe("handoff file retention", () => {
 
 	it("never deletes a manually supplied untracked handoff", async () => {
 		const extension = loadExtension();
-		const session = await readySession();
+		const session = await readySession(false, true);
 		const [contextEntry] = session.ctx.sessionManager.getBranch();
 		const untrackedCtx = {
 			...session.ctx,

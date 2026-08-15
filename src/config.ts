@@ -23,7 +23,7 @@ export function createDefaultConfig(agentDir: string): HandoffConfig {
 	return {
 		enabled: true,
 		thresholdPercent: 70,
-		autoContinue: true,
+		autoContinue: false,
 		retainHandoffFiles: false,
 		handoffDirectory: join(agentDir, "threadshift", "handoffs"),
 		maxOutputTokens: 8_192,

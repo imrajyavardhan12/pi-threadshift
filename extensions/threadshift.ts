@@ -30,6 +30,7 @@ import {
 	readHandoffDocument,
 	removeOwnedHandoffDocument,
 	renderHandoffDocument,
+	serializeHandoffConversation,
 	writeHandoffDocument,
 } from "../src/handoff-document.ts";
 import { shouldPauseActiveRun, shouldPrepareHandoff } from "../src/policy.ts";
@@ -219,7 +220,9 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 			if (contextMessages.length === 0) throw new Error("The current session has no context to hand off");
 			const sourceContextEntryId = latestContextEntryId(ctx);
 
-			const conversation = serializeConversation(convertToLlm(contextMessages));
+			const conversation = serializeHandoffConversation(contextMessages, (message) =>
+				serializeConversation(convertToLlm([message])),
+			);
 			const repositorySnapshot = await collectRepositorySnapshot(pi, ctx.cwd).catch(() => undefined);
 			const sourceSessionFile = ctx.sessionManager.getSessionFile();
 			const sessionName = ctx.sessionManager.getSessionName();
@@ -337,7 +340,10 @@ export default function threadshiftExtension(pi: ExtensionAPI) {
 			withSession: async (replacementCtx) => {
 				if (!autoContinue) {
 					replacementCtx.ui.setEditorText(kickoff);
-					replacementCtx.ui.notify("New session ready. Submit the handoff prompt when ready.", "info");
+					replacementCtx.ui.notify(
+						"New session ready. Review or edit the handoff prompt, then submit it when ready.",
+						"info",
+					);
 					return;
 				}
 

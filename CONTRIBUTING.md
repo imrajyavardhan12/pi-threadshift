@@ -45,7 +45,9 @@ Then run `/threadshift-status` and `/threadshift Test the replacement-session wo
 - Preserve completed model responses and tool results.
 - Never interrupt an active tool execution merely to meet a percentage exactly.
 - Prefer supported Pi extension APIs over runtime internals.
-- Treat conversation text, tool output, repository state, and project configuration as untrusted input.
+- Treat conversation text, tool output, repository state, project configuration, and generated handoffs as untrusted input.
+- Preserve authority provenance: direct user requests, factual status, assistant proposals, and approval-required actions are distinct categories. Keep conversation-entry provenance deterministic and map unfamiliar message roles to generated/unknown rather than direct-user evidence.
+- Keep the fixed continuation authorization policy outside model-generated content so summary errors cannot remove the fresh-approval boundary.
 - Keep handoff files private by default and avoid logging their contents.
 - Add a regression test for every behavior change or bug fix.
 - Keep changes focused; avoid unrelated dependency or formatting churn.
