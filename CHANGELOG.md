@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.1.0-beta.3] - 2026-08-15
+
 ### Changed
 
 - Default `autoContinue` to `false`, adding a review/edit boundary before the replacement session submits generated context. Configurations that omit the setting adopt the safe default; explicit `autoContinue: true` configurations remain automatic.
@@ -47,6 +49,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Require Pi `0.84.x`, develop against Pi `0.84.1`, and raise Node.js validation baselines to `22.23.2` and `24.18.1`.
 - Clarify that cleanup removes only tracked staging files while handoff content remains in Pi session storage.
 
-[Unreleased]: https://github.com/imrajyavardhan12/pi-threadshift/compare/v0.1.0-beta.2...HEAD
+[Unreleased]: https://github.com/imrajyavardhan12/pi-threadshift/compare/v0.1.0-beta.3...HEAD
+[0.1.0-beta.3]: https://github.com/imrajyavardhan12/pi-threadshift/compare/v0.1.0-beta.2...v0.1.0-beta.3
 [0.1.0-beta.2]: https://github.com/imrajyavardhan12/pi-threadshift/compare/v0.1.0-beta.1...v0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/imrajyavardhan12/pi-threadshift/releases/tag/v0.1.0-beta.1
